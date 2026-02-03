@@ -1,0 +1,138 @@
+name: Weather Bot
+
+on:
+  schedule:
+    # Каждый день в 08:00 и 18:00 по МСК (Московское время = UTC+3)
+    # В GitHub Actions время указывается в UTC
+    # 08:00 МСК = 05:00 UTC
+    # 18:00 МСК = 15:00 UTC
+    - cron: '0 5,15 * * *'
+  
+  # Для теста — запуск при пуше в ветку main или при ручном запуске
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  send-weather:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Send weather to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+        run: |
+          python3 << 'SCRIPT'
+          import requests
+          import os
+          import sys
+          from datetime import datetime
+          import pytz
+
+          print("🚀 Запуск отправки погоды...")
+
+          # Получаем настройки из секретов
+          BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+          CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+          API_KEY = os.environ.get('OPENWEATHER_API_KEY')
+          
+          if not all([BOT_TOKEN, CHAT_ID, API_KEY]):
+              print("❌ Ошибка: не все секреты настроены!")
+              sys.exit(1)
+
+          # Настройки города (измените на ваш)
+          CITY = "Moscow"  # ← СЮДА ВПИШИТЕ ВАШ ГОРОД
+          COUNTRY_CODE = "RU"  # Код страны (опционально)
+
+          # Получаем погоду
+          print(f"📡 Запрашиваем погоду для {CITY}...")
+          url = "https://api.openweathermap.org/data/2.5/weather"
+          params = {
+              "q": f"{CITY},{COUNTRY_CODE}" if COUNTRY_CODE else CITY,
+              "appid": API_KEY,
+              "units": "metric",
+              "lang": "ru"
+          }
+
+          try:
+              response = requests.get(url, params=params, timeout=10)
+              response.raise_for_status()
+              data = response.json()
+              
+              print(f"✅ Погода получена: {data['weather'][0]['description']}")
+
+              # Извлекаем данные
+              city_name = data["name"]
+              temp = data["main"]["temp"]
+              feels_like = data["main"]["feels_like"]
+              humidity = data["main"]["humidity"]
+              pressure = data["main"]["pressure"]
+              weather_desc = data["weather"][0]["description"].capitalize()
+              wind_speed = data["wind"]["speed"]
+
+              # Эмодзи по погоде
+              emoji = "☀️"
+              desc_lower = weather_desc.lower()
+              if "дождь" in desc_lower or "ливень" in desc_lower:
+                  emoji = "🌧️"
+              elif "облачно" in desc_lower or "пасмурно" in desc_lower:
+                  emoji = "☁️"
+              elif "снег" in desc_lower:
+                  emoji = "❄️"
+              elif "гроза" in desc_lower:
+                  emoji = "⚡"
+              elif "туман" in desc_lower or "мгла" in desc_lower:
+                  emoji = "🌫️"
+
+              # Формируем сообщение
+              message = f"""{emoji} <b>Погода в {city_name}</b>
+
+🌡️ {temp}°C (ощущается как {feels_like}°C)
+💧 Влажность: {humidity}%
+давление: {pressure} гПа
+💨 Ветер: {wind_speed} м/с
+🌤️ {weather_desc}
+
+⏰ {datetime.now(pytz.timezone('Europe/Moscow')).strftime('%d.%m.%Y %H:%M')}"""
+
+              # Отправляем в Telegram
+              print("📤 Отправляем сообщение в Telegram...")
+              tg_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+              tg_response = requests.post(
+                  tg_url,
+                  json={
+                      "chat_id": CHAT_ID,
+                      "text": message,
+                      "parse_mode": "HTML"
+                  },
+                  timeout=10
+              )
+              
+              tg_response.raise_for_status()
+              print("✅ Сообщение успешно отправлено!")
+
+          except requests.exceptions.RequestException as e:
+              print(f"❌ Ошибка при запросе: {e}")
+              sys.exit(1)
+          except KeyError as e:
+              print(f"❌ Ошибка в данных погоды: {e}")
+              print(f"Полный ответ: {data}")
+              sys.exit(1)
+          except Exception as e:
+              print(f"❌ Неизвестная ошибка: {e}")
+              sys.exit(1)
+
+          SCRIPT
