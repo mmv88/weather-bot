@@ -1,58 +1,87 @@
-import requests, os, sys
-from datetime import datetime
-import pytz
+name: Weather Bot
 
-t = os.environ['BOT_TOKEN']
-c = ''.join(filter(str.isdigit, os.environ['CHAT_ID']))
-k = os.environ['API_KEY']
+on:
+  schedule:
+    - cron: '0 5,15 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
 
-try:
-    w = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
-        'q': 'Moscow,RU',
-        'appid': k,
-        'units': 'metric',
-        'lang': 'ru'
-    }, timeout=10).json()
-    
-    if 'cod' in w and w['cod'] != 200:
-        raise Exception(f"OpenWeather API error: {w.get('message', 'Unknown error')}")
-    
-    e = '☀️'
-    d = w['weather'][0]['description'].lower()
-    if 'дождь' in d or 'ливень' in d: e = '🌧️'
-    elif 'облачно' in d or 'пасмурно' in d: e = '☁️'
-    elif 'снег' in d: e = '❄️'
-    elif 'гроза' in d: e = '⚡'
-    elif 'туман' in d: e = '🌫️'
-    
-    temp = round(w['main']['temp'], 1)
-    feels = round(w['main']['feels_like'], 1)
-    
-    m = f"""{e} <b>Погода в Москве</b>
+jobs:
+  send-weather:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Install dependencies
+        run: pip install requests pytz
+      
+      - name: Send weather
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+        run: |
+          python3 <<'PYEOF'
+          import requests, os, sys
+          from datetime import datetime
+          import pytz
 
-🌡️ {temp}°C (ощущается как {feels}°C)
-💧 Влажность: {w['main']['humidity']}%
-📊 Давление: {w['main']['pressure']} гПа
-💨 Ветер: {w['wind']['speed']} м/с
-🌤️ {w['weather'][0]['description'].capitalize()}
-⏰ {datetime.now(pytz.timezone('Europe/Moscow')).strftime('%d.%m.%Y %H:%M')}"""
-    
-    response = requests.post(
-        f'https://api.telegram.org/bot{t}/sendMessage',
-        json={
-            'chat_id': int(c),
-            'text': m,
-            'parse_mode': 'HTML'
-        },
-        timeout=10
-    )
-    
-    if response.status_code != 200:
-        print(f"Telegram response: {response.text}")
-        response.raise_for_status()
-    
-    print('✅ Погода отправлена!')
-    
-except Exception as ex:
-    print(f'❌ Ошибка: {ex}')
-    sys.exit(1)
+          t = os.environ['BOT_TOKEN']
+          c = ''.join(filter(str.isdigit, os.environ['CHAT_ID']))
+          k = os.environ['API_KEY']
+
+          try:
+              w = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
+                  'q': 'Moscow,RU',
+                  'appid': k,
+                  'units': 'metric',
+                  'lang': 'ru'
+              }, timeout=10).json()
+              
+              if 'cod' in w and w['cod'] != 200:
+                  raise Exception(f"OpenWeather API error: {w.get('message', 'Unknown error')}")
+              
+              e = '☀️'
+              d = w['weather'][0]['description'].lower()
+              if 'дождь' in d or 'ливень' in d: e = '🌧️'
+              elif 'облачно' in d or 'пасмурно' in d: e = '☁️'
+              elif 'снег' in d: e = '❄️'
+              elif 'гроза' in d: e = '⚡'
+              elif 'туман' in d: e = '🌫️'
+              
+              temp = round(w['main']['temp'], 1)
+              feels = round(w['main']['feels_like'], 1)
+              
+              m = f"""{e} <b>Погода в Москве</b>
+
+          🌡️ {temp}°C (ощущается как {feels}°C)
+          💧 Влажность: {w['main']['humidity']}%
+          📊 Давление: {w['main']['pressure']} гПа
+          💨 Ветер: {w['wind']['speed']} м/с
+          🌤️ {w['weather'][0]['description'].capitalize()}
+          ⏰ {datetime.now(pytz.timezone('Europe/Moscow')).strftime('%d.%m.%Y %H:%M')}"""
+              
+              response = requests.post(
+                  f'https://api.telegram.org/bot{t}/sendMessage',
+                  json={
+                      'chat_id': int(c),
+                      'text': m,
+                      'parse_mode': 'HTML'
+                  },
+                  timeout=10
+              )
+              
+              if response.status_code != 200:
+                  print(f"Telegram response: {response.text}")
+                  response.raise_for_status()
+              
+              print('✅ Погода отправлена!')
+              
+          except Exception as ex:
+              print(f'❌ Ошибка: {ex}')
+              sys.exit(1)
+          PYEOF
