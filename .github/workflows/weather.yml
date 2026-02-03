@@ -36,7 +36,7 @@ jobs:
 
           try:
               w = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
-                  'q': 'Moscow,RU',
+                  'q': 'Chelyabinsk,RU',
                   'appid': k,
                   'units': 'metric',
                   'lang': 'ru'
@@ -56,19 +56,20 @@ jobs:
               temp = round(w['main']['temp'], 1)
               feels = round(w['main']['feels_like'], 1)
               
-              m = f"""{e} <b>Погода в Москве</b>
+              m = f"""{e} <b>Погода в Челябинске</b>
 
           🌡️ {temp}°C (ощущается как {feels}°C)
           💧 Влажность: {w['main']['humidity']}%
           📊 Давление: {w['main']['pressure']} гПа
           💨 Ветер: {w['wind']['speed']} м/с
           🌤️ {w['weather'][0]['description'].capitalize()}
-          ⏰ {datetime.now(pytz.timezone('Europe/Moscow')).strftime('%d.%m.%Y %H:%M')}"""
+          ⏰ {datetime.now(pytz.timezone('Asia/Yekaterinburg')).strftime('%d.%m.%Y %H:%M')}"""
               
               response = requests.post(
                   f'https://api.telegram.org/bot{t}/sendMessage',
                   json={
                       'chat_id': int(c),
+                      'message_thread_id': 10, 
                       'text': m,
                       'parse_mode': 'HTML'
                   },
