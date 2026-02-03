@@ -31,7 +31,7 @@ jobs:
           import pytz
 
           t = os.environ['BOT_TOKEN']
-          c = ''.join(filter(str.isdigit, os.environ['CHAT_ID']))
+          c = os.environ['CHAT_ID'].strip()
           k = os.environ['API_KEY']
 
           try:
