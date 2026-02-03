@@ -55,12 +55,12 @@ jobs:
               
               temp = round(w['main']['temp'], 1)
               feels = round(w['main']['feels_like'], 1)
-              
+              pressure_mmhg = round(w['main']['pressure'] * 0.750062)
               m = f"""{e} <b>Погода в Челябинске</b>
 
           🌡️ {temp}°C (ощущается как {feels}°C)
           💧 Влажность: {w['main']['humidity']}%
-          📊 Давление: {w['main']['pressure']} гПа
+          📊 Давление: {pressure_mmhg} мм рт. ст.
           💨 Ветер: {w['wind']['speed']} м/с
           🌤️ {w['weather'][0]['description'].capitalize()}
           ⏰ {datetime.now(pytz.timezone('Asia/Yekaterinburg')).strftime('%d.%m.%Y %H:%M')}"""
