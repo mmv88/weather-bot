@@ -2,8 +2,8 @@ name: Weather and Birthday Bot
 
 on:
   schedule:
-    - cron: '0 3 * * *'  # 8:00 по Екатеринбургу (проверка ДР)
-    - cron: '0 2,9 * * *'  # Погода в 10:00 и 20:00 по Екатеринбургу
+    - cron: '0 2 * * *'  # 7:00 по Екатеринбургу (UTC+5)
+    - cron: '0 15 * * *'  # 20:00 по Екатеринбургу
   push:
     branches: [main]
   workflow_dispatch:
@@ -38,6 +38,9 @@ jobs:
           k = os.environ['API_KEY']
           tz = pytz.timezone('Asia/Yekaterinburg')
           now = datetime.now(tz)
+
+          MORNING_HOUR = 9
+          EVENING_HOUR = 20
           
           def send_message(text, thread_id=10):
               response = requests.post(
@@ -55,86 +58,124 @@ jobs:
                   response.raise_for_status()
               return response
           
-          # Проверка дней рождений
-          try:
-              birthdays_json = os.environ.get('BIRTHDAYS', '[]')
-              birthdays = json.loads(birthdays_json)
-              
-              today = now.date()
-              tomorrow = (now + timedelta(days=1)).date()
-              
-              for person in birthdays:
-                  name = person['name']
-                  bday_str = person['date']  # формат: "DD.MM" или "DD.MM.YYYY"
-                  
-                  parts = bday_str.split('.')
-                  day, month = int(parts[0]), int(parts[1])
-                  year = int(parts[2]) if len(parts) > 2 else None
-                  
-                  # День рождения в этом году
-                  bday_this_year = datetime(today.year, month, day).date()
-                  
-                  # Завтра день рождения
-                  if bday_this_year == tomorrow:
-                      age_text = ""
-                      if year:
-                          age = today.year - year + 1
-                          age_text = f" (исполнится {age})"
-                      msg = f"🎂 <b>Напоминание!</b>\n\nЗавтра день рождения у <b>{name}</b>{age_text}!\n\nНе забудьте поздравить! 🎉"
-                      send_message(msg)
-                      print(f"✅ Напоминание о ДР {name} отправлено (завтра)")
-                  
-                  # Сегодня день рождения
-                  elif bday_this_year == today:
-                      age_text = ""
-                      if year:
-                          age = today.year - year
-                          age_text = f" {age} лет"
-                      msg = f"🎉🎈 <b>С Днём Рождения!</b> 🎈🎉\n\n<b>{name}</b>{age_text}!\n\nЖелаем счастья, здоровья и исполнения всех желаний! 🎁🎂"
-                      send_message(msg)
-                      print(f"✅ Поздравление {name} отправлено")
-                      
-          except Exception as ex:
-              print(f"⚠️ Ошибка проверки ДР: {ex}")
-          
-          # Отправка погоды (только в указанное время)
-          hour = now.hour
-          if hour in [10, 20]:  # 10:00 и 20:00 по Екатеринбургу (5 и 15 UTC)
+          # В 7:00 утра - проверка дней рождений
+          if now.hour == MORNING_HOUR:
               try:
+                  birthdays_json = os.environ.get('BIRTHDAYS', '[]')
+                  birthdays = json.loads(birthdays_json)
+                  
+                  today = now.date()
+                  tomorrow = (now + timedelta(days=1)).date()
+                  
+                  for person in birthdays:
+                      name = person['name']
+                      bday_str = person['date']
+                      
+                      parts = bday_str.split('.')
+                      day, month = int(parts[0]), int(parts[1])
+                      year = int(parts[2]) if len(parts) > 2 else None
+                      
+                      bday_this_year = datetime(today.year, month, day).date()
+                      
+                      # Завтра день рождения
+                      if bday_this_year == tomorrow:
+                          age_text = ""
+                          if year:
+                              age = today.year - year + 1
+                              age_text = f" (исполнится {age})"
+                          msg = f"🎂 <b>Напоминание!</b>\n\nЗавтра день рождения у <b>{name}</b>{age_text}!\n\nНе забудьте поздравить! 🎉"
+                          send_message(msg)
+                          print(f"✅ Напоминание о ДР {name} отправлено (завтра)")
+                      
+                      # Сегодня день рождения
+                      elif bday_this_year == today:
+                          age_text = ""
+                          if year:
+                              age = today.year - year
+                              age_text = f" {age} лет"
+                          msg = f"🎉🎈 <b>С Днём Рождения!</b> 🎈🎉\n\n<b>{name}</b>{age_text}!\n\n"
+                          send_message(msg)
+                          print(f"✅ Поздравление {name} отправлено")
+                          
+              except Exception as ex:
+                  print(f"⚠️ Ошибка проверки ДР: {ex}")
+          
+          # Отправка погоды
+          try:
+              # В 7:00 - погода на сегодня (текущая)
+              # В 20:00 - прогноз на завтра
+              if now.hour == MORNING_HOUR:
+                  weather_type = "сегодня"
                   w = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
                       'q': 'Chelyabinsk,RU',
                       'appid': k,
                       'units': 'metric',
                       'lang': 'ru'
                   }, timeout=10).json()
+              elif now.hour == EVENING_HOUR:
+                  weather_type = "завтра"
+                  # Используем прогноз (берем данные на завтрашний день, примерно на полдень)
+                  forecast = requests.get('https://api.openweathermap.org/data/2.5/forecast', params={
+                      'q': 'Chelyabinsk,RU',
+                      'appid': k,
+                      'units': 'metric',
+                      'lang': 'ru'
+                  }, timeout=10).json()
                   
-                  if 'cod' in w and w['cod'] != 200:
-                      raise Exception(f"OpenWeather API error: {w.get('message', 'Unknown error')}")
+                  # Берем прогноз на завтра около 12:00
+                  tomorrow_noon = None
+                  for item in forecast['list']:
+                      forecast_time = datetime.fromtimestamp(item['dt'], tz=tz)
+                      if forecast_time.date() == (now + timedelta(days=1)).date():
+                          if 10 <= forecast_time.hour <= 14:
+                              tomorrow_noon = item
+                              break
                   
-                  e = '☀️'
-                  d = w['weather'][0]['description'].lower()
-                  if 'дождь' in d or 'ливень' in d: e = '🌧️'
-                  elif 'облачно' in d or 'пасмурно' in d: e = '☁️'
-                  elif 'снег' in d: e = '❄️'
-                  elif 'гроза' in d: e = '⚡'
-                  elif 'туман' in d: e = '🌫️'
-                  
-                  temp = round(w['main']['temp'], 1)
-                  feels = round(w['main']['feels_like'], 1)
-                  pressure_mmhg = round(w['main']['pressure'] * 0.750062)
-                  
-                  m = f"""{e} <b>Погода в Челябинске</b>
+                  if tomorrow_noon:
+                      w = {
+                          'weather': tomorrow_noon['weather'],
+                          'main': tomorrow_noon['main'],
+                          'wind': tomorrow_noon['wind']
+                      }
+                  else:
+                      # Если не нашли, берем первый прогноз на завтра
+                      w = {
+                          'weather': forecast['list'][8]['weather'],
+                          'main': forecast['list'][8]['main'],
+                          'wind': forecast['list'][8]['wind']
+                      }
+              else:
+                  sys.exit(0)  # Выход, если не 7:00 и не 20:00
+              
+              if 'cod' in w and w['cod'] != 200:
+                  raise Exception(f"OpenWeather API error: {w.get('message', 'Unknown error')}")
+              
+              e = '☀️'
+              d = w['weather'][0]['description'].lower()
+              if 'дождь' in d or 'ливень' in d: e = '🌧️'
+              elif 'облачно' in d or 'пасмурно' in d: e = '☁️'
+              elif 'снег' in d: e = '❄️'
+              elif 'гроза' in d: e = '⚡'
+              elif 'туман' in d: e = '🌫️'
+              
+              temp = round(w['main']['temp'], 1)
+              feels = round(w['main']['feels_like'], 1)
+              pressure_mmhg = round(w['main']['pressure'] * 0.750062)
+              
+              header = "сегодня" if now.hour == 7 else "на завтра"
+              m = f"""{e} <b>Погода в Челябинске {header}</b>
+
           🌡️ {temp}°C (ощущается как {feels}°C)
           💧 Влажность: {w['main']['humidity']}%
           📊 Давление: {pressure_mmhg} мм рт. ст.
           💨 Ветер: {w['wind']['speed']} м/с
           🌤️ {w['weather'][0]['description'].capitalize()}
           ⏰ {now.strftime('%d.%m.%Y %H:%M')}"""
-                  
-                  send_message(m)
-                  print('✅ Погода отправлена!')
-                  
-              except Exception as ex:
-                  print(f'❌ Ошибка погоды: {ex}')
-                  sys.exit(1)
+              
+              send_message(m)
+              print(f'✅ Погода {weather_type} отправлена!')
+              
+          except Exception as ex:
+              print(f'❌ Ошибка погоды: {ex}')
+              sys.exit(1)
           PYEOF
