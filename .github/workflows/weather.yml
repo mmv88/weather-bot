@@ -2,7 +2,7 @@ name: Weather and Birthday Bot
 
 on:
   schedule:
-    - cron: '*/1 * * * *'
+    - cron: '*/5 * * * *'
     
   push:
     branches: [main]
