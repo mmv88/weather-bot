@@ -1,8 +1,6 @@
 name: Weather and Birthday Bot
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   repository_dispatch:
     types: [cron-trigger]
     
