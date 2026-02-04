@@ -1,9 +1,6 @@
 name: Weather and Birthday Bot
 
-on:
-  schedule:
-    - cron: '0 2 * * *'  # 7:00 по Екатеринбургу (UTC+5)
-    - cron: '0 15 * * *'  # 20:00 по Екатеринбургу
+on:  
     
   push:
     branches: [main]
