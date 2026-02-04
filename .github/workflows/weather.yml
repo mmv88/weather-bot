@@ -162,7 +162,7 @@ jobs:
               feels = round(w['main']['feels_like'], 1)
               pressure_mmhg = round(w['main']['pressure'] * 0.750062)
               
-              header = "сегодня" if now.hour == 7 else "на завтра"
+              header = "сегодня" if now.hour == MORNING_HOUR else "на завтра"
               m = f"""{e} <b>Погода в Челябинске {header}</b>
 
           🌡️ {temp}°C (ощущается как {feels}°C)
