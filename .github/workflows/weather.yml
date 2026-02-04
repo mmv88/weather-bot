@@ -36,8 +36,8 @@ jobs:
           tz = pytz.timezone('Asia/Yekaterinburg')
           now = datetime.now(tz)
 
-          MORNING_HOUR = 17
-          EVENING_HOUR = 20
+          MORNING_HOUR = 7
+          EVENING_HOUR = 17
           QUOTE_HOUR = 17  # Время отправки цитаты (12:00 по Екатеринбургу)
           
           def send_message(text, thread_id=10):
