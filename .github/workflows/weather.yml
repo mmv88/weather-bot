@@ -1,7 +1,6 @@
 name: Weather and Birthday Bot
 
 on:  
-    
   push:
     branches: [main]
   workflow_dispatch:
@@ -37,8 +36,9 @@ jobs:
           tz = pytz.timezone('Asia/Yekaterinburg')
           now = datetime.now(tz)
 
-          MORNING_HOUR = 7
+          MORNING_HOUR = 17
           EVENING_HOUR = 20
+          QUOTE_HOUR = 17  # Время отправки цитаты (12:00 по Екатеринбургу)
           
           def send_message(text, thread_id=10):
               response = requests.post(
@@ -91,12 +91,39 @@ jobs:
                           if year:
                               age = today.year - year
                               age_text = f" {age} лет"
-                          msg = f"🎉🎈 <b>С Днём Рождения!</b> 🎈🎉\n\n<b>{name}</b>{age_text}!\n\n"
+                          msg = f"🎉🎈 <b>С Днём Рождения!</b> 🎈🎉\n\n<b>{name}</b>{age_text}!\n\nЖелаем счастья, здоровья и исполнения всех желаний! 🎁🎂"
                           send_message(msg)
                           print(f"✅ Поздравление {name} отправлено")
                           
               except Exception as ex:
                   print(f"⚠️ Ошибка проверки ДР: {ex}")
+          
+          # Отправка цитаты
+          if now.hour == QUOTE_HOUR:
+              try:
+                  quote_url = "https://api.forismatic.com/api/1.0/"
+                  quote_params = {
+                      'method': 'getQuote',
+                      'format': 'json',
+                      'lang': 'ru'
+                  }
+                  
+                  quote_response = requests.get(quote_url, params=quote_params, timeout=10)
+                  quote_data = quote_response.json()
+                  
+                  quote_text = quote_data.get('quoteText', '').strip()
+                  quote_author = quote_data.get('quoteAuthor', '').strip()
+                  
+                  if quote_text:
+                      author_line = f"\n\n— <i>{quote_author}</i>" if quote_author else ""
+                      quote_msg = f"💭 <b>Цитата дня</b>\n\n«{quote_text}»{author_line}"
+                      send_message(quote_msg)
+                      print(f"✅ Цитата отправлена")
+                  else:
+                      print("⚠️ Не удалось получить цитату")
+                      
+              except Exception as ex:
+                  print(f"⚠️ Ошибка получения цитаты: {ex}")
           
           # Отправка погоды
           try:
@@ -143,6 +170,7 @@ jobs:
                           'wind': forecast['list'][8]['wind']
                       }
               else:
+                  print(f"⏭️ Не время для погоды (текущий час: {now.hour})")
                   sys.exit(0)  # Выход, если не 7:00 и не 20:00
               
               if 'cod' in w and w['cod'] != 200:
