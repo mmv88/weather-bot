@@ -1,8 +1,9 @@
 name: Weather and Birthday Bot
 
 on:
-  repository_dispatch:
-    types: [cron-trigger]
+  schedule:
+    - cron: '0 2 * * *'  # 7:00 по Екатеринбургу (UTC+5)
+    - cron: '0 15 * * *'  # 20:00 по Екатеринбургу
     
   push:
     branches: [main]
