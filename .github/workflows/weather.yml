@@ -39,7 +39,7 @@ jobs:
           tz = pytz.timezone('Asia/Yekaterinburg')
           now = datetime.now(tz)
 
-          MORNING_HOUR = 9
+          MORNING_HOUR = 7
           EVENING_HOUR = 20
           
           def send_message(text, thread_id=10):
